@@ -1,0 +1,248 @@
+# ItemAttributeAPI v1.0.0
+# date: 2023/3/29
+# required plugin: skript ,skript-reflect, NBTAPI
+
+
+import:
+	de.tr7zw.nbtapi.NBT
+	de.tr7zw.nbtapi.NBTItem
+	de.tr7zw.nbtapi.NBTEntity
+	java.util.UUID
+	org.bukkit.inventory.ItemFlag
+
+
+
+function nbt_ItemToString(item:item) :: string:
+	set {_nbt} to NBT.itemStackToNBT({_item})
+	return {_nbt}.toString()
+
+function nbt_StringToItem(str:string) :: item:
+	set {_nbt} to NBT.parseNBT({_str})
+	return NBT.itemStackFromNBT({_nbt})
+
+# --- custom NBT tag ---
+
+
+function item_hasNBTTag(i:item,tag:string) :: boolean:
+	return new NBTItem({_i}).hasTag({_tag})
+
+# only can use number or string to save
+function item_addNBTTag(i:item,tag:string,value:object) :: item:
+	set {_nbt} to new NBTItem({_i})
+	if {_nbt}.hasTag({_tag}) = false:
+		if {_value} is instance of String:
+			{_nbt}.setString({_tag},{_value})
+		else:
+			{_nbt}.setDouble({_tag},{_value})
+		return {_nbt}.getItem()
+
+function item_removeNBTTag(i:item,tag:string) :: item:
+	set {_nbt} to new NBTItem({_i})
+	if {_nbt}.hasTag({_tag}) = true:
+		{_nbt}.removeKey({_tag})
+		return {_nbt}.getItem()
+
+function item_setNBTTag(i:item,tag:string,value:object) :: item:
+	set {_nbt} to new NBTItem({_i})
+	if {_nbt}.hasTag({_tag}) = true:
+		if {_value} is instance of String:
+			{_nbt}.setString({_tag},{_value})
+		else:
+			{_nbt}.setDouble({_tag},{_value})
+		return {_nbt}.getItem()
+        
+# return type will be number or string
+function item_getNBTTag(i:item,tag:string) :: object:
+	set {_nbt} to new NBTItem({_i})
+	if {_nbt}.hasTag({_tag}) = true:
+		if {_nbt}.getString({_tag}).length() < 1:
+			return {_nbt}.getDouble({_tag})
+		return {_nbt}.getString({_tag})
+
+
+# --- player skull ---
+
+
+#   ex:
+#    set {_texture} to "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZGM2ZGM2YTE1M2UyYTA2MzJmMDQ2MjEzMzFjNWE5OTE3YTYyMDkxNjBhYjdiYjFmYjJhYzYxNmE0NTQ2OTEzNiJ9fX0="
+#	 give 1 of Item_getSkull({_texture}) to player
+#    owner: default is "player", can change to player's name or keeping default value
+function Item_getSkull(texturestring:string,owner:string = "player") :: item:
+	set {_i} to player skull
+	set {_nbt} to new NBTItem({_i})
+	set {_skullstream} to {_nbt}.addCompound("SkullOwner")
+	{_skullstream}.setString("Name", {_owner})
+	# {_skullstream}.setUUID("Id", UUID.randomUUID())
+	set {_texture} to {_skullstream}.addCompound("Properties").getCompoundList("textures").addCompound()
+	{_texture}.setString("Value", {_texturestring})
+	return {_nbt}.getItem()
+
+# --- HideFlags ---
+
+# flag type: ATTRIBUTES, DESTROYS, DYE, ENCHANTS, PLACED_ON, POTION_EFFECTS, UNBREAKABLE
+
+function Item_HasFlag(item:item) :: boolean:
+	return item_hasNBTTag( {_item}, "HideFlags" )
+    
+# get all flags in {_item}
+function Item_getFlags(item:item) :: strings:
+	set {_meta} to {_item}.getItemMeta()
+	return ...{_meta}.getItemFlags()
+
+# ex:
+#   set player's tool to Item_addFlag(player's tool,"attributes")
+function Item_addFlag(item:item,flag:string) :: item:
+	set {_meta} to {_item}.getItemMeta()
+	if {_flag} doesn't contain "hide":
+		set {_flag} to "HIDE_%{_flag}%"
+	set {_f} to ItemFlag.valueOf({_flag}.toUpperCase())
+	if {_meta}.hasItemFlag({_f}) = false:
+		{_meta}.addItemFlags({_f})
+		{_item}.setItemMeta({_meta})
+	return {_item}
+    
+function Item_removeFlag(item:item,flag:string) :: item:
+	set {_meta} to {_item}.getItemMeta()
+	if {_flag} doesn't contain "hide":
+		set {_flag} to "HIDE_%{_flag}%"
+	set {_f} to ItemFlag.valueOf({_flag}.toUpperCase())
+	if {_meta}.hasItemFlag({_f}):
+		{_meta}.removeItemFlags({_f})
+		{_item}.setItemMeta({_meta})
+	return {_item}
+
+
+
+# --- Attribute ---
+
+#slot: mainhand, offhand, head, chest, legs, feet
+#attribute type: ARMOR, ARMOR_TOUGHNESS, ATTACK_DAMAGE, ATTACK_KNOCKBACK, ATTACK_SPEED, FLYING_SPEED, FOLLOW_RANGE, KNOCKBACK_RESISTANCE, LUCK, MAX_HEALTH, MOVEMENT_SPEED, HORSE_JUMP_STRENGTH, ZOMBIE_SPAWN_REINFORCEMENTS
+
+
+function Item_HasAttribute(item:item) :: boolean:
+	return item_hasNBTTag({_item},"AttributeModifiers")
+
+# get single value from {_slot}
+# If the slot has multiple values, the first one will be returned
+# ex:  
+#    set {_damage} to Item_Attribute_getValue(player's tool,"attack damage","mainhand")
+function Item_Attribute_getValue(item:item,att:string,slot:string="mainhand") :: number:
+	if {_att} contain "horse" or "zombie":
+		set {_format} to {_att}.toUpperCase()
+	else:
+		set {_format} to "GENERIC_%{_att}.toUpperCase()%" 
+	replace all " " with "_" in {_format}
+	set {_nbt} to new NBTItem({_item})
+	if {_nbt}.hasTag("AttributeModifiers"):
+		loop ...{_nbt}.getCompoundList("AttributeModifiers"):
+			if loop-value.getString("Slot") = {_slot}:
+				if loop-value.getString("Name") = {_format}:
+					return loop-value.getDouble("Amount")
+                    
+# Get all slots that contain attributes
+# ex:
+#    set {_slots::*} to Item_Attribute_getAllSlot(player's tool)
+#    print {_slots::*} will be "mainhand" , "offhand" .... 
+function Item_Attribute_getAllSlot(item:item) :: strings:
+	set {_nbt} to new NBTItem({_item})
+	if {_nbt}.hasTag("AttributeModifiers"):
+		loop ...{_nbt}.getCompoundList("AttributeModifiers"):
+			if {_slots::*} doesn't contain loop-value.getString("Slot"):
+				add loop-value.getString("Slot") to {_slots::*}
+		return {_slots::*}
+# Get all "attribute" and value contained in "slot"
+# ex:
+#   set {_list::*} to Item_Attribute_getAllSlot(player's tool)
+#   {_list::*} will be "GENERIC_ATTACK_DAMAGE: 10"  "GENERIC_ATTACK_SPEED: 5" ...
+function Item_Attribute_getSlotValue(item:item,slot:string = "mainhand") :: strings:
+	set {_nbt} to new NBTItem({_item})
+	if {_nbt}.hasTag("AttributeModifiers"):
+		loop ...{_nbt}.getCompoundList("AttributeModifiers"):
+			if loop-value.getString("Slot") = {_slot}:
+				set {_n} to loop-value.getString("Name")
+				set {_a} to loop-value.getDouble("Amount")
+				add "%{_n}%: %{_a}%" to {_r::*}
+		return {_r::*}
+
+# clear all attrubites from this item
+function Item_Attribute_clearAll(item:item) :: item:
+	set {_nbt} to new NBTItem({_item})
+	if {_nbt}.hasTag("AttributeModifiers"):
+		{_nbt}.removeKey("AttributeModifiers")
+		return {_nbt}.getItem()
+	return {_item}
+    
+# clear all attrubites from specify slot
+function Item_Attribute_clearSlot(item:item,slot:string = "mainhand") :: item:
+	set {_nbt} to new NBTItem({_item})
+	if {_nbt}.hasTag("AttributeModifiers"):
+		loop ...{_nbt}.getCompoundList("AttributeModifiers"):
+			if loop-value.getString("Slot") = {_slot}:
+				loop-value.clearNBT()
+		return {_nbt}.getItem()
+	return {_item}
+    
+function Item_Attribute_setValue(item:item,att:string,value:object,slot:string = "mainhand") :: item:
+	if {_att} contain "horse" or "zombie":
+		set {_format} to {_att}.toUpperCase()
+	else:
+		set {_format} to "GENERIC_%{_att}.toUpperCase()%" 
+	replace all " " with "_" in {_format}
+	set {_nbt} to new NBTItem({_item})
+	if {_nbt}.hasTag("AttributeModifiers"):
+		set {_att::*} to ...{_nbt}.getCompoundList("AttributeModifiers")
+		loop {_att::*}:
+			if loop-value.getString("Slot") = {_slot}:
+				if loop-value.getString("Name") = {_format}:
+					loop-value.setDouble("Amount",{_value})
+					return {_nbt}.getItem()
+	return {_item}
+# slot type: all,mainhand,offhand,head,chest,legs,feet
+# Operation: 0,1,2
+function Item_Attribute_addValue(item:item,att:string,Amount:number,slot:string = "all",Operation:integer = 0) :: item:
+	set {_att} to {_att}.replaceAll(" ","_")
+	if {_att} doesn't contain "zombie" or "horse":
+		set {_Name} to "GENERIC_%{_att}.toUpperCase()%"
+		set {_Attributename} to "minecraft:generic.%{_att}.toLowerCase()%"
+	else:
+		set {_Name} to {_att}.toUpperCase()
+		set {_Attributename} to "minecraft:%{_att}.toLowerCase()%"
+	set {_nbt} to new NBTItem({_item})
+	if {_nbt}.hasTag("AttributeModifiers") = false:
+		{_nbt}.addCompound("AttributeModifiers")
+	set {_attributelist} to {_nbt}.getCompoundList("AttributeModifiers")
+	if {_slot} = "all":
+		add "mainhand" , "offhand" , "head" , "chest" , "legs" , "feet" to {_allslot::*}
+		loop {_allslot::*}:
+			set {_mod} to {_attributelist}.addCompound()
+			set_attribute( {_mod}, {_Name}, {_AttributeName}, {_Operation}, loop-value, {_Amount} )
+	else:
+		set {_mod} to {_attributelist}.addCompound()
+		set_attribute( {_mod}, {_Name}, {_AttributeName}, {_Operation}, {_slot}, {_Amount} )
+	return {_nbt}.getItem()
+
+function set_attribute(compound:object,Name:string,AttributeName:string,Operation:integer,slot:string,Amount:number):
+	{_compound}.setString("Name",{_Name})
+	{_compound}.setString("AttributeName",{_Attributename})
+	{_compound}.setInteger("Operation",{_Operation})
+	{_compound}.setUUID("UUID",UUID.randomUUID())
+	{_compound}.setString("Slot",{_slot})
+	{_compound}.setDouble("Amount",{_Amount})
+    
+# slot type: all,mainhand,offhand,head,chest,legs,feet
+function Item_Attribute_removeValue(item:item,att:string,slot:string = "all") :: item:
+	if {_att} doesn't contain "horse" or "zombie":
+		set {_format} to "GENERIC_%{_att}%" 
+	replace all " " with "_" in {_format}
+	set {_nbt} to new NBTItem({_item})
+	if {_nbt}.hasTag("AttributeModifiers"):
+		loop ...{_nbt}.getCompoundList("AttributeModifiers"):
+			if {_slot} = "all":
+				if loop-value.getString("Name") = {_format}.toUpperCase():
+					loop-value.clearNBT()
+			else:
+				if loop-value.getString("Slot") = {_slot}:
+					if loop-value.getString("Name") = {_format}.toUpperCase():
+						loop-value.clearNBT()						
+		return {_nbt}.getItem()
+	return {_item}
