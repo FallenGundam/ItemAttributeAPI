@@ -1,5 +1,7 @@
 # ItemAttributeAPI
-更輕鬆的編輯物品NBT
+更輕鬆的編輯物品NBT  
+提供 texture skull itemflag attributes NbtTag api  
+![image](https://user-images.githubusercontent.com/54828956/228903732-ddf0f5b1-773c-40a8-a587-910de62605b5.png)
 
 # required plugins:
     skript 2.6  
