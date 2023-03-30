@@ -37,7 +37,7 @@
       item_removeNBTTag(i:item,tag:string) :: item:
       
     * 自定義頭顱
-       可使用texture value來或去頭顱
+       可使用texture value來獲取頭顱
        owner 為頭顱擁有者 可不填，也可填玩家名
        Item_getSkull(texturestring:string,owner:string = "player") :: item:
          ex:
